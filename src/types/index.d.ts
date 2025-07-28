@@ -18,4 +18,6 @@ export interface Manual {
   id: string;
   titulo: string;
   contenido: string;
+  url?: string;
+  embedding?: number[]; // nuevo
 }

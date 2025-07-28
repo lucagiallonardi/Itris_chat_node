@@ -1,66 +1,72 @@
 import { Server, Socket } from "socket.io";
+import { askGPTWithManuales } from "./services/gptService";
+import fs from "fs/promises";
 import path from "path";
-import OpenAI from "openai";
-import type { ChatMessage, ClientData } from "./types";
-import { readJsonFile, writeJsonFile } from "./utils/file";
-import { askGPTWithManuales } from "./services/gptService"; 
 
-const CLIENTS_FILE = path.resolve(__dirname, "./storage/clients.json");
+const clientsFilePath = path.resolve(__dirname, "./storage/clients.json");
 
-const clientsMap: Map<string, ClientData> = new Map();
+interface Client {
+  id: string;
+  messages: { role: string; content: string }[];
+  connected: boolean;
+}
+
+let clients: Client[] = [];
 
 async function loadClients() {
-  const clients = await readJsonFile<ClientData[]>(CLIENTS_FILE);
-  if (clients) clients.forEach(c => clientsMap.set(c.id, c));
+  try {
+    const data = await fs.readFile(clientsFilePath, "utf-8");
+    clients = JSON.parse(data);
+  } catch {
+    clients = [];
+  }
 }
 
 async function saveClients() {
-  await writeJsonFile(CLIENTS_FILE, Array.from(clientsMap.values()));
+  await fs.writeFile(clientsFilePath, JSON.stringify(clients, null, 2));
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export function setupSocket(io: Server) {
-  loadClients();
+  io.on("connection", async (socket: Socket) => {
+    console.log("Cliente conectado:", socket.id);
 
-  io.on("connection", (socket: Socket) => {
-    console.log(`Cliente conectado: ${socket.id}`);
+    // Cargar clientes (ideal hacerlo una vez al iniciar la app, no cada conexión)
+    await loadClients();
 
-    let currentClient = clientsMap.get(socket.id);
-    if (!currentClient) {
-      currentClient = { id: socket.id, messages: [], connected: true };
-      clientsMap.set(socket.id, currentClient);
+    // Buscar cliente o crear uno nuevo
+    let client = clients.find(c => c.id === socket.id);
+    if (!client) {
+      client = { id: socket.id, messages: [], connected: true };
+      clients.push(client);
     } else {
-      currentClient.connected = true;
+      client.connected = true;
     }
 
-    saveClients();
-
-    socket.on("message", async (msg: string) => {
-    console.log(`Mensaje recibido de ${socket.id}: ${msg}`);
-
-    if (!currentClient) return;
-
-    currentClient.messages.push({ role: "user", content: msg });
-
-    // Usamos la función con manuales, pasamos la pregunta y todo el historial
-    const responseText = await askGPTWithManuales(msg, currentClient.messages);
-
-    currentClient.messages.push({ role: "assistant", content: responseText });
-
-    socket.emit("response", responseText);
-
     await saveClients();
-  });
 
-    socket.on("disconnect", () => {
-      console.log(`Cliente desconectado: ${socket.id}`);
-      if (currentClient) {
-        currentClient.connected = false;
-        saveClients();
-      }
+    socket.on("mensaje_cliente", async (texto: string) => {
+      console.log(`Mensaje de ${socket.id}:`, texto);
+
+      // Agregar mensaje del usuario al historial del cliente
+      client!.messages.push({ role: "user", content: texto });
+
+      // Consultar a GPT
+      const respuesta = await askGPTWithManuales(texto, client!.messages);
+
+      // Agregar respuesta de GPT al historial
+      client!.messages.push({ role: "assistant", content: respuesta });
+
+      // Guardar historial actualizado
+      await saveClients();
+
+      // Enviar respuesta al cliente
+      socket.emit("mensaje_servidor", respuesta);
+    });
+
+    socket.on("disconnect", async () => {
+      console.log("Cliente desconectado:", socket.id);
+      client!.connected = false;
+      await saveClients();
     });
   });
 }

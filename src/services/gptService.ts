@@ -51,22 +51,22 @@ export async function askGPTWithManuales(
     .map(m => `${m.titulo}\n${m.contenido}`)
     .join("\n\n");
 
-  const promptMessages = [
-    { role: "system", content: "Eres un asistente experto en manuales Itris." },
-    ...messages,
-  ];
+      const promptMessages = [
+        { role: "system", content: "Eres un asistente experto en manuales Itris." },
+        ...messages,
+      ];
 
-  if (ayudaTexto.trim()) {
-    promptMessages.push({
-      role: "system",
-      content: "Documentación relevante:\n" + ayudaTexto,
-    });
-  }
+      if (ayudaTexto.trim()) {
+        promptMessages.push({
+          role: "system",
+          content: "Documentación relevante:\n" + ayudaTexto,
+        });
+      }
 
-  promptMessages.push({
-    role: "user",
-    content: pregunta,
-  });
+      promptMessages.push({
+        role: "user",
+        content: pregunta,
+      });
 
   try {
     const completion = await openai.chat.completions.create({
