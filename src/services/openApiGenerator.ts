@@ -75,7 +75,7 @@ const openapiSpec = {
 
 export async function generateOpenApiYaml() {
   const yamlStr = yaml.dump(openapiSpec, { noRefs: true });
-  const outputPath = path.resolve(__dirname, "../storage/openapi.yaml");
+  const outputPath = path.resolve(__dirname, "../static/openapi.yaml");
   await fs.writeFile(outputPath, yamlStr, "utf-8");
   console.log("Archivo OpenAPI YAML generado en:", outputPath);
 }
