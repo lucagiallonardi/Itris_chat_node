@@ -9,7 +9,7 @@ import path from "path";
 export function createServerApp() {
   const app = express();
   const httpServer = createServer(app);
-  app.use("/docs", express.static(path.join(__dirname, "storage")));
+  app.use("/docs", express.static(path.join(__dirname, "static")));
 
   // Configuración de Socket.IO
   const io = new SocketIOServer(httpServer, {
