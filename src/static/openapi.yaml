@@ -1,50 +1,56 @@
 openapi: 3.0.0
 info:
-  title: GAIA API
+  title: ITRIS Chat API
   version: 1.0.0
+  description: >
+    API WebSocket para interacción con un chatbot experto en manuales ITRIS.  
+    La comunicación se realiza mediante eventos WebSocket.
+
+servers:
+  - url: ws://localhost:3000
+    description: Servidor de desarrollo local
+  - url: wss://chat.itris.com.ar
+    description: Servidor de producción
+
 paths:
-  /consultar:
+  /socket.io:
     post:
-      summary: Consulta a GAIA
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConsultaRequest'
+      summary: Establece una conexión WebSocket con el servidor ITRIS Chat.
+      description: >
+        Al conectarse, el cliente obtiene un ID de sesión.  
+        Puede enviar mensajes a través del evento `mensaje_cliente` y recibirá respuestas en `mensaje_servidor`.
       responses:
-        '200':
-          description: Respuesta generada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConsultaResponse'
+        '101':
+          description: Protocolo de cambio exitoso a WebSocket
+
 components:
   schemas:
-    ConsultaRequest:
+    MensajeCliente:
       type: object
       properties:
-        pregunta:
+        texto:
           type: string
-        empresa:
-          type: string
-          description: Nombre de la empresa o instancia del cliente
-        usuario:
-          type: string
-          description: Correo electrónico o nombre del visitante
-        chatId:
-          type: string
-          description: ID de sesión del chat, provisto por Tawk.to automáticamente
+          example: "¿Cómo se autorizan bonificaciones por artículo?"
       required:
-        - pregunta
-    ConsultaResponse:
+        - texto
+
+    MensajeServidor:
       type: object
       properties:
         respuesta:
           type: string
-        razonamiento:
+          example: "Para autorizar bonificaciones por artículo debes..."
+    
+    ChatMessage:
+      type: object
+      properties:
+        role:
           type: string
-        fuentes:
-          type: array
-          items:
-            type: string
+          enum: [user, assistant]
+        content:
+          type: string
+
+tags:
+  - name: WebSocket
+    description: Comunicación mediante eventos WebSocket
+
