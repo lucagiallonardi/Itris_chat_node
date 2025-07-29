@@ -4,6 +4,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { setupSocket } from "./socket";
 import path from "path";
 import chatRouter from "./routes/chat";
+import cors from "cors";
 
 
 
@@ -13,6 +14,7 @@ export function createServerApp() {
   const httpServer = createServer(app);
   app.use("/docs", express.static(path.join(__dirname, "static")));
   app.use("/api/chat", chatRouter);
+  app.use(cors()); 
 
   // Configuración de Socket.IO
   const io = new SocketIOServer(httpServer, {
