@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 // Importa la función para el chat REST
-import chatRouter from "./routes/chat"; // (o define directamente aquí la ruta)
+import chatRouter from "./routes/chat"; 
+
 
 export function createServerApp() {
   const app = express();
@@ -17,6 +18,7 @@ export function createServerApp() {
   app.get("/", (_req, res) => {
     res.send("Servidor Itris_Chat corriendo en Node.js + TypeScript 🚀");
   });
+  
 
   return { app, httpServer: null }; // Ya no usás createServer ni httpServer
 }

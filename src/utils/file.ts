@@ -1,30 +1,54 @@
-import { readFile, writeFile } from "fs/promises";
+import fs from "fs/promises";
+import path from "path";
+
+const CLIENTS_PATH = path.resolve(__dirname, "../storage/clients.json");
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface ChatLog {
+  id: string;
+  messages: ChatMessage[];
+  connected: boolean;
+}
 
 /**
- * Lee un archivo JSON y lo parsea a un objeto
- * @param path Ruta del archivo JSON
- * @returns Objeto parseado o null si no existe o hay error
+ * Carga todos los logs actuales.
  */
-export async function readJsonFile<T>(path: string): Promise<T | null> {
+export async function leerLogs(): Promise<ChatLog[]> {
   try {
-    const data = await readFile(path, "utf-8");
-    return JSON.parse(data) as T;
-  } catch (error) {
-    console.warn(`No se pudo leer o parsear el archivo ${path}:`, error);
-    return null;
+    const data = await fs.readFile(CLIENTS_PATH, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    return [];
   }
 }
 
 /**
- * Guarda un objeto en un archivo JSON
- * @param path Ruta donde guardar el archivo
- * @param data Objeto a guardar
+ * Guarda todos los logs.
  */
-export async function writeJsonFile(path: string, data: unknown): Promise<void> {
-  try {
-    const json = JSON.stringify(data, null, 2);
-    await writeFile(path, json, "utf-8");
-  } catch (error) {
-    console.error(`Error guardando archivo JSON ${path}:`, error);
-  }
+async function guardarLogs(logs: ChatLog[]) {
+  await fs.writeFile(CLIENTS_PATH, JSON.stringify(logs, null, 2), "utf-8");
+}
+
+/**
+ * Agrega o actualiza el historial de un chatId
+ */
+export async function guardarConversacion(
+  chatId: string,
+  usuario: string,
+  mensajes: { role: "user" | "assistant"; content: string }[]
+) {
+  const filePath = path.join(__dirname, "..", "conversaciones", `${chatId}.json`);
+  const data = {
+    chatId,
+    usuario,
+    mensajes,
+    fecha: new Date().toISOString(),
+  };
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
 }

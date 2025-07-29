@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { askGPTWithManuales } from "../services/gptService";
+import { guardarConversacion } from "../utils/file";
 
 const router = Router();
 
@@ -28,11 +29,15 @@ router.post("/", async (req, res) => {
     const respuesta = await askGPTWithManuales(texto, historiales[chatId]);
     historiales[chatId].push({ role: "assistant", content: respuesta });
 
+    // Guardamos toda la conversación (usuario, mensajes, respuesta) en un archivo
+    await guardarConversacion(chatId, usuario, historiales[chatId]);
+
     res.json({ chatId, usuario, respuesta, historial: historiales[chatId] });
   } catch (error) {
     console.error("Error procesando chat:", error);
     res.status(500).json({ error: "Error interno al procesar la consulta" });
   }
 });
+
 
 export default router;
