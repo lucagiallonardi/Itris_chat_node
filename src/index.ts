@@ -8,7 +8,7 @@ import { carga } from "./services/gptService";
 const PORT = process.env.PORT || 3000;
 
 async function main() {
-  await generateOpenApiYaml();
+  //await generateOpenApiYaml();
   await carga(); 
 
   const { httpServer } = createServerApp();
