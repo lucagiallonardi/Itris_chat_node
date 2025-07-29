@@ -1,37 +1,22 @@
 import express from "express";
-import { createServer } from "http";
-import { Server as SocketIOServer } from "socket.io";
-import { setupSocket } from "./socket";
-import path from "path";
-import chatRouter from "./routes/chat";
 import cors from "cors";
-
-
-
+import path from "path";
+// Importa la función para el chat REST
+import chatRouter from "./routes/chat"; // (o define directamente aquí la ruta)
 
 export function createServerApp() {
   const app = express();
-  const httpServer = createServer(app);
+
+  app.use(cors());
+  app.use(express.json());
   app.use("/docs", express.static(path.join(__dirname, "static")));
+
+  // API REST para chat
   app.use("/api/chat", chatRouter);
-  app.use(cors()); 
 
-  // Configuración de Socket.IO
-  const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: "*",
-      methods: ["GET", "POST"],
-    },
-  });
-
-
-  // Ruta simple para testear
   app.get("/", (_req, res) => {
     res.send("Servidor Itris_Chat corriendo en Node.js + TypeScript 🚀");
   });
 
-  // Configuramos la lógica de WebSocket
-  setupSocket(io);
-
-  return { app, httpServer };
+  return { app, httpServer: null }; // Ya no usás createServer ni httpServer
 }
