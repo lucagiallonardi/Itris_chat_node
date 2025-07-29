@@ -70,16 +70,18 @@ export async function askGPTWithManuales(
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       messages: promptMessages as any,
       max_tokens: 300,
       temperature: 0.7,
     });
 
     return completion.choices[0].message?.content ?? "Sin respuesta";
+    console.log("Enviando mensajes a OpenAI:", promptMessages);
   } catch (error) {
     console.error("Error al consultar GPT:", error);
     return "Lo siento, ocurrió un error al procesar tu consulta.";
+    console.error("Error al consultar GPT:", JSON.stringify(error, null, 2));
   }
 }
 

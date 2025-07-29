@@ -52,6 +52,7 @@ export function setupSocket(io: Server) {
 
       // Consultar a GPT
       const respuesta = await askGPTWithManuales(texto, client!.messages);
+      console.log(`Respuesta generada para ${socket.id}:`, respuesta);
 
       // Agregar respuesta de GPT al historial
       client!.messages.push({ role: "assistant", content: respuesta });
