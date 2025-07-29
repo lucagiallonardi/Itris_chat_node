@@ -1,4 +1,3 @@
-// gptService.ts
 import OpenAI from "openai";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -9,64 +8,103 @@ const openai = new OpenAI({
 });
 
 let manualesData: Manual[] = [];
+let manualesEmbeddings: number[][] = []; // matriz de embeddings precomputados
+const MAX_DOCS = 3; // cantidad máxima de manuales a usar para contexto
 
-/**
- * Carga los manuales desde un archivo JSON
- * @param filePath ruta al archivo manuales.json
- */
 async function loadManuales(filePath: string) {
   const raw = await readFile(filePath, "utf-8");
   manualesData = JSON.parse(raw) as Manual[];
   console.log(`Cargados ${manualesData.length} manuales.`);
 }
 
-/**
- * Busca manuales cuyo título o contenido contengan alguna palabra clave de la pregunta
- * @param pregunta texto con la consulta del usuario
- * @returns array de manuales relacionados
- */
-function buscarManuales(pregunta: string): Manual[] {
-  const keywords = pregunta.toLowerCase().split(/\s+/).filter(k => k.length > 2);
-  return manualesData.filter(manual =>
-    keywords.some(kw =>
-      manual.titulo.toLowerCase().includes(kw) ||
-      manual.contenido.toLowerCase().includes(kw)
-    )
-  );
+async function computeEmbeddings() {
+  if (!manualesData.length) {
+    console.warn("No hay manuales cargados para calcular embeddings");
+    return;
+  }
+  // Sacamos los textos a embedding
+  const textos = manualesData.map(m => m.contenido);
+
+  // Pedimos los embeddings a OpenAI (en batch)
+  const response = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: textos,
+  });
+
+  // Guardamos los embeddings en la variable global
+  manualesEmbeddings = response.data.map(e => e.embedding);
+  console.log(`Embeddings calculados para ${manualesEmbeddings.length} manuales.`);
+}
+
+// Función para producto punto entre vectores
+function dotProduct(a: number[], b: number[]) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    sum += a[i] * b[i];
+  }
+  return sum;
 }
 
 /**
- * Consulta a OpenAI incluyendo manuales relacionados como contexto adicional
- * @param pregunta texto de la pregunta del usuario
- * @param messages historial previo de mensajes (chat)
- * @returns respuesta generada por GPT
+ * Recupera manuales más relevantes usando embeddings y similitud coseno (aproximada por dot product)
+ * @param pregunta texto de la consulta
+ * @param maxDocs máximo documentos a devolver
  */
+export async function recuperarManualesPorEmbedding(pregunta: string, maxDocs = MAX_DOCS): Promise<Manual[]> {
+  if (!manualesEmbeddings.length) {
+    console.warn("Embeddings no calculados aún, calculando ahora...");
+    await computeEmbeddings();
+  }
+
+  // Obtener embedding de la pregunta
+  const embeddingPreguntaResponse = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: pregunta,
+  });
+  const embeddingPregunta = embeddingPreguntaResponse.data[0].embedding;
+
+  // Calcular similitud con cada manual
+  const similitudes = manualesEmbeddings.map((embedding, i) => ({
+    index: i,
+    score: dotProduct(embedding, embeddingPregunta),
+  }));
+
+  // Ordenar descendente por score
+  similitudes.sort((a, b) => b.score - a.score);
+
+  // Obtener top manuales
+  const topManuales = similitudes.slice(0, maxDocs).map(s => manualesData[s.index]);
+
+  return topManuales;
+}
+
+// Cambiar esta función para usar embeddings y mejorar la búsqueda contextual
 export async function askGPTWithManuales(
   pregunta: string,
   messages: { role: string; content: string }[]
 ): Promise<string> {
-  const relacionados = buscarManuales(pregunta);
+  const relacionados = await recuperarManualesPorEmbedding(pregunta);
 
   const ayudaTexto = relacionados
     .map(m => `${m.titulo}\n${m.contenido}`)
     .join("\n\n");
 
-      const promptMessages = [
-        { role: "system", content: "Eres un asistente experto en manuales Itris." },
-        ...messages,
-      ];
+  const promptMessages = [
+    { role: "system", content: "Eres un asistente experto en manuales Itris." },
+    ...messages,
+  ];
 
-      if (ayudaTexto.trim()) {
-        promptMessages.push({
-          role: "system",
-          content: "Documentación relevante:\n" + ayudaTexto,
-        });
-      }
+  if (ayudaTexto.trim()) {
+    promptMessages.push({
+      role: "system",
+      content: "Documentación relevante:\n" + ayudaTexto,
+    });
+  }
 
-      promptMessages.push({
-        role: "user",
-        content: pregunta,
-      });
+  promptMessages.push({
+    role: "user",
+    content: pregunta,
+  });
 
   try {
     const completion = await openai.chat.completions.create({
@@ -77,16 +115,15 @@ export async function askGPTWithManuales(
     });
 
     return completion.choices[0].message?.content ?? "Sin respuesta";
-    console.log("Enviando mensajes a OpenAI:", promptMessages);
   } catch (error) {
     console.error("Error al consultar GPT:", error);
     return "Lo siento, ocurrió un error al procesar tu consulta.";
-    console.error("Error al consultar GPT:", JSON.stringify(error, null, 2));
   }
 }
 
-// Carga inicial de manuales (usar en server.ts o index.ts)
+// Carga inicial de manuales + embeddings
 export async function carga() {
   const manualesPath = path.resolve(__dirname, "../storage/manuales.json");
   await loadManuales(manualesPath);
+  await computeEmbeddings();
 }
